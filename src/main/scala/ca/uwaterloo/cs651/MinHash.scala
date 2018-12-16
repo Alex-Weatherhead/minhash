@@ -34,21 +34,21 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
     val defaultNumberOfBitsInHashValues: Int = 60
     val defaultNumberOfHashFunctions: Int = 20
     val defaultSeedsForHashFunctions: List[Long] = {
-        val random = Random(100003) // Seed a random with some large prime number.
-        Array.fill[Long](defaultNumberOfHashFunctions)(random.nextLong)
+        val random = new Random(100003) // Seed a random with some large prime number.
+        List.fill[Long](defaultNumberOfHashFunctions)(random.nextLong)
     }
     val defaultNumberOfBands: Int = 10
     val defaultSeedsForBands: List[Long] = {
-        val random = Random(103680) // // Seed a random with some large prime number.
-        Array.fill[Long](defaultNumberOfBands)(random.nextLong)
+        val random = new Random(103680) // // Seed a random with some large prime number.
+        List.fill[Long](defaultNumberOfBands)(random.nextLong)
     }
     val defaultNumberOfHashFunctionsPerBand: Int = 10
     val defaultNumberOfCharactersPerShingle: Int = 12
     val defaultMinimumNumberOfShinglesToConsider: Int = 75
     val defaultMaximumNumberOfShinglesToConsider: Int = 600
 
-    val inputFilepath = opt[String](descr="The path to the text file containing the input corpus.", required=True)
-    val outputFilepath = opt[String](descr="The path to the text file in which the results will be written.", required=True) 
+    val inputFilepath = opt[String](descr="The path to the text file containing the input corpus.", required=true)
+    val outputFilepath = opt[String](descr="The path to the text file in which the results will be written.", required=true) 
 
     val numberOfReducers = opt[Int](descr="The number of reducers for Spark to use.", default=Some(defaultNumberOfReducers))
 
@@ -57,7 +57,7 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
     val numberOfHashFunctions = opt[Int](descr="The number of hash functions to use.", default=Some(defaultNumberOfHashFunctions))
     val seedsForHashFunctions = opt[List[Long]](descr="The list of the random seeds to use when creating each hash function. Must have length equal to --numberOfHashFunctions.", default=Some(defaultSeedsForHashFunctions))
     val numberOfBands = opt[Int](descr="The number of bands to use. Must be greater than or equal to one.", default=Some(defaultNumberOfBands))
-    val seedsForBands = opt[List[Int]](descr="A list of the random seeds to use to create each band. Must have length equal to --numberOfBands.", default=Some(defaultSeedsForBands))
+    val seedsForBands = opt[List[Long]](descr="A list of the random seeds to use to create each band. Must have length equal to --numberOfBands.", default=Some(defaultSeedsForBands))
     val numberOfHashFunctionsPerBand = opt[Int](descr="The number of hash functions to use in each band. Must be greater than or equal to one.", default=Some(defaultNumberOfHashFunctionsPerBand))   
     val numberOfCharactersPerShingle = opt[Int](descr="The number of characters per shingle. Must be greater than or equal to one.", default=Some(defaultNumberOfCharactersPerShingle)) 
     val minimumNumberOfShinglesToConsider = opt[Int](descr="The minimum number of shingles to consider when processing a given sentence. Must be greater than or equal to zero.", default=Some(defaultMinimumNumberOfShinglesToConsider))
@@ -77,7 +77,7 @@ object MinHash {
     def createBands (numberOfHashFunctions: Int,
                      numberOfBands: Int,
                      numberOfHashFunctionsPerBand: Int,
-                     seedsForBands: List[Int]): List[List[Int]] = {
+                     seedsForBands: List[Long]): List[List[Int]] = {
         
         return (
             for {
@@ -89,7 +89,7 @@ object MinHash {
 
     def main (arguments: Array[String]) {
 
-        val conf = MinHashConf(arguments)
+        val conf = new MinHashConf(arguments)
 
         logger.info("inputFilepath: " + conf.inputFilepath())
         logger.info("outputFilepath: " + conf.outputFilepath())
@@ -108,12 +108,19 @@ object MinHash {
         val targetJaccardSimilarityOfPairs: Double = conf.targetJaccardSimilarityOfPairs()
 
         if (targetJaccardSimilarityOfPairs < 0 || targetJaccardSimilarityOfPairs > 1) {
-            logger.error("The number of hash functions must be greater than or equal to one, but " + numberOfHashFunctions + " was given.")
+            logger.error("The target Jaccard Similarity of pairs must be between zero and one inclusive, but " + targetJaccardSimilarityOfPairs + " was given.")
             System.exit(1)
         }
 
-        val numberOfHashFunctions: Int = conf.numberOfHashFunctions().getOrElse(0)
-        val seedsForHashFunctions: List[Long] = conf.seedsForHashFunctions().getOrElse(List())
+        val numberOfBitsInHashValues: Int = conf.numberOfBitsInHashValues()
+
+        if (numberOfBitsInHashValues < 1) {
+            logger.error("The number of bits in the hash values must be greater than or equal to one, but " + numberOfBitsInHashValues + " was given.")
+            System.exit(1)
+        }
+
+        val numberOfHashFunctions: Int = conf.numberOfHashFunctions()
+        val seedsForHashFunctions: List[Long] = conf.seedsForHashFunctions()
 
         if (numberOfHashFunctions < 1) {
             logger.error("The number of hash functions must be greater than or equal to one, but " + numberOfHashFunctions + " was given.")
@@ -124,8 +131,8 @@ object MinHash {
             System.exit(1)
         }
 
-        val numberOFBands: Int = conf.numberOfBands().getOrElse(0)
-        val seedsForBands: List[Int] = conf.seedsForBands().getOrElse(List())
+        val numberOfBands: Int = conf.numberOfBands()
+        val seedsForBands: List[Long] = conf.seedsForBands()
 
         if (numberOfBands < 1) {
             logger.error("The number of bands must be greater than or equal to one, but " + numberOfBands + " was given.")
@@ -136,7 +143,7 @@ object MinHash {
             System.exit(1)
         }
 
-        val numberOfHashFunctionsPerBand: Int = conf.numberOfHashFunctionsPerBand().getOrElse(0)
+        val numberOfHashFunctionsPerBand: Int = conf.numberOfHashFunctionsPerBand()
 
         if (numberOfHashFunctionsPerBand < 1) {
             logger.error("The number of hash functions per band must be greater than or equal to one, but " + numberOfHashFunctionsPerBand + " was given.")
@@ -147,21 +154,21 @@ object MinHash {
             System.exit(1)
         }
 
-        val numberOfCharactersPerShingle: Int = conf.numberOfCharactersPerShingle().getOrElse(0)
+        val numberOfCharactersPerShingle: Int = conf.numberOfCharactersPerShingle()
 
         if (numberOfCharactersPerShingle < 1) {
             logger.error("The number of characters per shingle must be greater than or equal to one, but " + numberOfCharactersPerShingle + " was given.")
             System.exit(1)
         }
 
-        val minimumNumberOfShinglesToConsider: Int = conf.minimumNumberOfShinglesToConsider().getOrElse(0)
+        val minimumNumberOfShinglesToConsider: Int = conf.minimumNumberOfShinglesToConsider()
 
         if (minimumNumberOfShinglesToConsider < 0) {
             logger.error("The minimum number of shingles to consider must be greater than or equal to zero, but " + minimumNumberOfShinglesToConsider + " was given.")
             System.exit(1)
         }
 
-        val maximumNumberOfShinglesToConsider: Int = conf.maximumNumberOfShinglesToConsider().getOrElse(0)
+        val maximumNumberOfShinglesToConsider: Int = conf.maximumNumberOfShinglesToConsider()
 
         if (maximumNumberOfShinglesToConsider < 1) {
             logger.error("The maximum number of shingles to consider must be greater than or equal to one, but " + maximumNumberOfShinglesToConsider + " was given.")
@@ -173,20 +180,20 @@ object MinHash {
         
         val fileSystem = FileSystem.get(sparkContext.hadoopConfiguration)
 
-        val inputFilepath: String = Path(conf.inputFilepath())
+        val inputFilepath: Path = new Path(conf.inputFilepath())
         
         if (!fileSystem.exists(inputFilepath)) {
-            logger.error("The input file \"" + inputFilepath.toUri() + "\" does not exist")
+            logger.error("The input file \"" + inputFilepath.toString() + "\" does not exist")
             System.exit(1)
         }
 
-        val outputFilepath: String = Path(conf.outputFilepath())
+        val outputFilepath: Path = new Path(conf.outputFilepath())
 
         fileSystem.delete(outputFilepath, true) // If a file already exists under outputFilepath then delete it.
 
         val hashFunctions = new MultiplyShiftHash(
             numberOfBitsInHashValues,
-            seedsForHashFunctions
+            seedsForHashFunctions.toArray
         )
 
         val bands = createBands(
@@ -205,14 +212,14 @@ object MinHash {
         val hashFunctionsBroadcast = sparkContext.broadcast(hashFunctions)
         val bandsBroadcast = sparkContext.broadcast(bands)
 
-        val outputs = (
-            sparkContext.textFile(inputFilepath.toUri())
+        val nearDuplicatePairsOfSentences = (
+            sparkContext.textFile(inputFilepath.toString())
                         .flatMap(line => {
 
                             val lineSplit: Array[String] = line.split(",")
 
                             val document: String = lineSplit(1)
-                            val doumentId: String = lineSplit(0)
+                            val documentId: String = lineSplit(0)
                                     
                             val sentences: Array[String] = document.split(".")
                             sentences.zipWithIndex.flatMap(tuple => {
@@ -235,7 +242,7 @@ object MinHash {
                                 }
                                 else {
 
-                                    val minHashes = Array.fill[Long](numberOfHashFunctions.value)(Long.MaxValue)
+                                    val minHashes = Array.fill[Long](numberOfHashFunctionsBroadcast.value)(Long.MaxValue)
 
                                     for (shingle <- shingles) {
                                         val hashValuesOfShingle: Array[Long] = hashFunctionsBroadcast.value.hashStr(shingle)
@@ -276,18 +283,18 @@ object MinHash {
                         .filter(tuple => {
                             // Filters out signatures that belong to only one sentence.
 
-                            val iterable: Iterable[(String, List[Long])] = tuple._2
+                            val iterable: Iterable[(String, Array[Long])] = tuple._2
 
-                            iterable.length > 1 
+                            iterable.size > 1 
 
                         })
                         .flatMap(tuple => {
                              // Finds all candidate pairs for the given signature.
 
                             val signature: String = tuple._1
-                            val iterable: Iterable[(String, List[Long])] = tuple._2
+                            val iterable: Iterable[(String, Array[Long])] = tuple._2
 
-                            for {
+                            (for {
                                 (sentenceIdA, minHashesA) <- iterable
                             }
                             yield {
@@ -298,30 +305,30 @@ object MinHash {
                                 yield {
                                     // It is important to maintain some sort of consistent ordering
                                     // so that duplicates candidate pairs can be easily filtered out.
-                                    if (setenceIdA <= sentenceIdB) {
-                                        ((setenceIdA, sentenceIdB), (minHashesA, minHashesB))
+                                    if (sentenceIdA <= sentenceIdB) {
+                                        ((sentenceIdA, sentenceIdB), (minHashesA, minHashesB))
                                     }
                                     else{
                                         ((sentenceIdB, sentenceIdA), (minHashesB, minHashesA))
                                     }
                                 }
-                            }
+                            }).flatten
 
                         })
                         .groupByKey() 
-                        .mapPartitions(tuple => {
+                        .map(tuple => {
                             // Filters out duplicate sentenceId candidate pairs.
                                     
                             // Since a groupByKey() was just done, all the pairs in the
                             // iterable should be the same, so simply take the first.
-                            (tuple._1, tuple._2.take(1)) 
+                            (tuple._1, tuple._2.head) 
 
                         })
                         .filter(tuple => {
                             // Filters out false positives.
 
-                            val minHashesA: List[Long] = tuple._2._1
-                            val minHashesB: List[Long] = tuple._2._2
+                            val minHashesA: Array[Long] = tuple._2._1
+                            val minHashesB: Array[Long] = tuple._2._2
 
                             var estimatedJaccardSimilarityOfPair = 0
                                     
@@ -340,7 +347,7 @@ object MinHash {
                         })  
         )
 
-        output.saveAsTextFile(outputFilepath.toUri())
+        nearDuplicatePairsOfSentences.saveAsTextFile(outputFilepath.toString())
 
     }
 
