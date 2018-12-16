@@ -30,7 +30,7 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
     )
 
     val defaultNumberOfReducers: Int = 1
-    val defaultTargetJaccardSimilarityOfPairs: Float = 0.9
+    val defaultTargetJaccardSimilarityOfPairs: Double = 0.9
     val defaultNumberOfBitsInHashValues: Int = 60
     val defaultNumberOfHashFunctions: Int = 20
     val defaultSeedsForHashFunctions: List[Long] = {
@@ -52,7 +52,7 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
 
     val numberOfReducers = opt[Int](descr="The number of reducers for Spark to use.", default=Some(defaultNumberOfReducers))
 
-    val targetJaccardSimilarityOfPairs = opt[Float](descr="The jaccard similarity of pairs that will be used as a threshold for filtering out false positives. Must be between zero and one inclusive", default=Some(defaultTargetJaccardSimilarityOfPairs))
+    val targetJaccardSimilarityOfPairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshold for filtering out false positives. Must be between zero and one inclusive", default=Some(defaultTargetJaccardSimilarityOfPairs))
     val numberOfBitsInHashValues = opt[Int](descr="", default=Some(defaultNumberOfBitsInHashValues))
     val numberOfHashFunctions = opt[Int](descr="The number of hash functions to use.", default=Some(defaultNumberOfHashFunctions))
     val seedsForHashFunctions = opt[List[Long]](descr="The list of the random seeds to use when creating each hash function. Must have length equal to --numberOfHashFunctions.", default=Some(defaultSeedsForHashFunctions))
@@ -82,10 +82,7 @@ object MinHash {
         return (
             for {
                 i <- List.range(0, numberOfBands)
-            } 
-            yield {
-                Random.shuffle(List.range(0, numberOfHashFunctions)).take(numberOfHashFunctionsPerBand)
-            }
+            } yield Random.shuffle(List.range(0, numberOfHashFunctions)).take(numberOfHashFunctionsPerBand)    
         )
 
     }
@@ -108,7 +105,7 @@ object MinHash {
         logger.info("--minimumNumberOfShinglesToConsider: " + conf.minimumNumberOfShinglesToConsider())
         logger.info("--maximumNumberOfShinglesToConsider: " + conf.maximumNumberOfShinglesToConsider())
 
-        val targetJaccardSimilarityOfPairs: Float = conf.targetJaccardSimilarityOfPairs()
+        val targetJaccardSimilarityOfPairs: Double = conf.targetJaccardSimilarityOfPairs()
 
         if (targetJaccardSimilarityOfPairs < 0 || targetJaccardSimilarityOfPairs > 1) {
             logger.error("The number of hash functions must be greater than or equal to one, but " + numberOfHashFunctions + " was given.")
@@ -210,7 +207,7 @@ object MinHash {
 
         val outputs = (
             sparkContext.textFile(inputFilepath.toUri())
-                        .flatMap(line: String => {
+                        .flatMap(line => {
 
                             val lineSplit: Array[String] = line.split(",")
 
@@ -218,7 +215,7 @@ object MinHash {
                             val doumentId: String = lineSplit(0)
                                     
                             val sentences: Array[String] = document.split(".")
-                            sentences.zipWithIndex.flatMap(tuple: (String, Int) => {
+                            sentences.zipWithIndex.flatMap(tuple => {
 
                                 val sentence = tuple._1
                                 val sentenceNumber = tuple._2
@@ -227,12 +224,9 @@ object MinHash {
                                 val shingles: Iterator[String] = (
                                     for {
                                         shingle <- sentence.sliding(numberOfCharactersPerShingle, 1)
-                                    }
-                                    yield {
-                                        shingle
-                                    }
-                                )                 
-
+                                    } yield shingle
+                                )
+                                                 
                                 if (shingles.length < minimumNumberOfShinglesToConsiderBroadcast.value ||
                                     shingles.length > maximumNumberOfShinglesToConsiderBroadcast.value) {
 
@@ -252,20 +246,16 @@ object MinHash {
                                         }
                                     }
 
-                                    minHashesForBands: List[List[String]] =  (
+                                    val minHashesForBands: List[List[Long]] = (
                                         for {
                                             b <- List.range(0, numberOfBandsBroadcast.value)
                                         }
-                                        yield {
-                                            (
-                                                for {
-                                                    hf <- List.range(0, numberOfHashFunctionsBroadcast.value)
-                                                    if (bandsBroadcast.value(b).contains(hf))
-                                                }
-                                                yield {
-                                                    minHashes(hf)
-                                                }
-                                            )
+                                        yield { 
+                                            for {
+                                                hf <- List.range(0, numberOfHashFunctionsBroadcast.value)
+                                                if (bandsBroadcast.value(b).contains(hf))
+                                            }
+                                            yield minHashes(hf)      
                                         }
                                     )
 
@@ -279,23 +269,23 @@ object MinHash {
 
                                 }
 
-                            }
+                            })
 
                         })
                         .groupByKey()
-                        .filter(tuple: (String, Iterable[(String, List[Int])]) => {
+                        .filter(tuple => {
                             // Filters out signatures that belong to only one sentence.
 
-                            val iterable: Iterable[(String, List[Int])] = tuple._2
+                            val iterable: Iterable[(String, List[Long])] = tuple._2
 
                             iterable.length > 1 
 
                         })
-                        .flatMap(tuple: (String, Iterable[(String, List[Int])]) => {
+                        .flatMap(tuple => {
                              // Finds all candidate pairs for the given signature.
 
                             val signature: String = tuple._1
-                            val iterable: Iterable[(String, List[Int])] = tuple._2
+                            val iterable: Iterable[(String, List[Long])] = tuple._2
 
                             for {
                                 (sentenceIdA, minHashesA) <- iterable
@@ -319,7 +309,7 @@ object MinHash {
 
                         })
                         .groupByKey() 
-                        .mapPartitions(tuple: ((String, String), Iterable[(List[Int], List[Int])]) => {
+                        .mapPartitions(tuple => {
                             // Filters out duplicate sentenceId candidate pairs.
                                     
                             // Since a groupByKey() was just done, all the pairs in the
@@ -327,11 +317,11 @@ object MinHash {
                             (tuple._1, tuple._2.take(1)) 
 
                         })
-                        .filter(tuple: ((String, String), (List[Int], List[Int])) => {
+                        .filter(tuple => {
                             // Filters out false positives.
 
-                            val minHashesA = tuple._2._1
-                            val minHashesB = tuple._2._2
+                            val minHashesA: List[Long] = tuple._2._1
+                            val minHashesB: List[Long] = tuple._2._2
 
                             var estimatedJaccardSimilarityOfPair = 0
                                     
@@ -342,13 +332,12 @@ object MinHash {
                             estimatedJaccardSimilarityOfPair >= targetJaccardSimilarityOfPairsBroadcast.value
 
                         })
-                        .map(tuple: ((String, String), (List[Int], List[Int])) => {
+                        .map(tuple => {
                             // Drops the minHashes from the tuples.
 
                             tuple._1
 
                         })  
-
         )
 
         output.saveAsTextFile(outputFilepath.toUri())
