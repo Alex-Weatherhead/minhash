@@ -218,13 +218,16 @@ object MinHash {
                             val documentId: String = lineSplit(0)
                             
                             val sentences: Array[String] = document.split('.')
-
                             sentences.zipWithIndex.flatMap(tuple => {
 
                                 val sentence = tuple._1
                                 val sentenceNumber = tuple._2
                                 val sentenceId: String = documentId + "::" + sentenceNumber 
                     
+                                // This calculation only holds for stride of 1, which is the only case we allow for.
+                                // By doing this simple calculation, we save on a lot of unecessary object creation 
+                                // because in the first case, the shingles themselves aren't needed, and in the second 
+                                // case, we would have to create the iterator twice (once to count length and once to use).
                                 val numberOfShingles: Int = sentence.length - (numberOfCharactersPerShingle - 1)
 
                                 if (numberOfShingles < minimumNumberOfShinglesToConsiderBroadcast.value ||
@@ -305,9 +308,11 @@ object MinHash {
                                 // It is important to maintain some sort of consistent ordering
                                 // so that duplicates candidate pairs can be easily filtered out.
                                 if (sentenceIdA <= sentenceIdB) {
+                                    logger.info("Candidate pair: " + sentenceIdA + ", " + sentenceIdB)
                                     ((sentenceIdA, sentenceIdB), (minHashesA, minHashesB))
                                 }
                                 else{
+                                    logger.info("Candidate pair: " + sentenceIdB + ", " + sentenceIdA)
                                     ((sentenceIdB, sentenceIdA), (minHashesB, minHashesA))
                                 }
 
@@ -332,11 +337,13 @@ object MinHash {
                             val minHashesA: Array[Long] = tuple._2._1
                             val minHashesB: Array[Long] = tuple._2._2
 
-                            var estimatedJaccardSimilarityOfPair = 0
+                            var estimatedJaccardSimilarityOfPair: Double = 0
                                     
                             for (hfpb <- 0 to numberOfHashFunctionsPerBandBroadcast.value - 1) {
-                                estimatedJaccardSimilarityOfPair += hfpb / numberOfHashFunctionsPerBandBroadcast.value
+                                estimatedJaccardSimilarityOfPair += hfpb.toDouble / numberOfHashFunctionsPerBandBroadcast.value
                             }
+
+                            logger.info("Estimated vs target: " + estimatedJaccardSimilarityOfPair + ", " + targetJaccardSimilarityOfPairsBroadcast.value)
 
                             estimatedJaccardSimilarityOfPair >= targetJaccardSimilarityOfPairsBroadcast.value
 
