@@ -219,8 +219,6 @@ object MinHash {
                             
                             val sentences: Array[String] = document.split('.')
 
-                            logger.info("Number of sentences: " + sentences.length)
-
                             sentences.zipWithIndex.flatMap(tuple => {
 
                                 val sentence = tuple._1
@@ -242,7 +240,6 @@ object MinHash {
                                     val shingles: Iterator[String] = sentence.sliding(numberOfCharactersPerShingle, 1)
 
                                     for (shingle <- shingles) {
-                                        logger.info(shingle)
                                         val hashValuesOfShingle: Array[Long] = hashFunctionsBroadcast.value.hashStr(shingle)
                                         for (hf <- 0 to numberOfHashFunctionsBroadcast.value - 1) {
                                             if (hashValuesOfShingle(hf) < minHashes(hf)) {
@@ -271,7 +268,6 @@ object MinHash {
                                         minHashesForBand <- minHashesForBands
                                     }
                                     yield {
-                                        logger.info(minHashesForBand.toString)
                                         (minHashesForBand.toString, (sentenceId, minHashes))
                                     }
 
