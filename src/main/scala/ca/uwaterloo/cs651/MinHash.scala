@@ -46,7 +46,7 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
     )
 
     val input_filepath = opt[String](descr="The path to the text file containing the input corpus.", required=true)
-    val output_filepath = opt[String](descr="The path to the text file in which the results will be written.", required=true) 
+    val output_filepath = opt[String](descr="The path to the directory under which the results will be written.", required=true) 
     val target_jaccard_similarity_of_pairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshold for filtering out false positives. Must be between zero and one inclusive", default=Some(defaultTargetJaccardSimilarityOfPairs))
     val number_of_bits_in_hash_values = opt[Int](descr="", default=Some(defaultNumberOfBitsInHashValues))
     val number_of_hash_functions = opt[Int](descr="The number of hash functions to use.", default=Some(defaultNumberOfHashFunctions))
@@ -298,6 +298,7 @@ object MinHash {
                             for {
                                 (sentenceIdA, minHashesA) <- iterable
                                 (sentenceIdB, minHashesB) <- iterable
+                                if (sentenceIdA != sentenceIdB)
                             }
                             yield {
 
