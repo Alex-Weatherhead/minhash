@@ -210,7 +210,6 @@ object MinHash {
             sparkContext.textFile(inputPath.toString())
                         .flatMap(line => {
                             // Determine each signature for each sentence.
-                            logger.info("flatMap() #1")
 
                             val lineSplit: Array[String] = line.slice(1,line.length-1).split(',')
                             
@@ -282,7 +281,6 @@ object MinHash {
                         .groupByKey()
                         .filter(tuple => {
                             // Filters out signatures that belong to only one sentence.
-                            logger.info("filter() #1")
 
                             val iterable: Iterable[(String, Array[Long])] = tuple._2 
 
@@ -291,28 +289,25 @@ object MinHash {
                         })
                         .flatMap(tuple => {
                             // Finds all candidate pairs for the given signature.
-                            logger.info("flatMap() #2")
 
                             val signature: String = tuple._1
                             val iterable: Iterable[(String, Array[Long])] = tuple._2
 
-                            logger.info((iterable.size * (iterable.size - 1))/2 + " pairs for signature " + signature)
-
                             for {
                                 (sentenceIdA, minHashesA) <- iterable
                                 (sentenceIdB, minHashesB) <- iterable
-                                if (sentenceIdA != sentenceIdB)
+                                if (sentenceIdA.split("::")(0) != sentenceIdB.split("::")(0))
                             }
                             yield {
 
                                 // It is important to maintain some sort of consistent ordering
                                 // so that duplicates candidate pairs can be easily filtered out.
                                 if (sentenceIdA <= sentenceIdB) {
-                                    logger.info("Candidate pair: " + sentenceIdA + ", " + sentenceIdB)
+                                    logger.debug("Candidate pair: " + sentenceIdA + ", " + sentenceIdB)
                                     ((sentenceIdA, sentenceIdB), (minHashesA, minHashesB))
                                 }
                                 else{
-                                    logger.info("Candidate pair: " + sentenceIdB + ", " + sentenceIdA)
+                                    logger.debug("Candidate pair: " + sentenceIdB + ", " + sentenceIdA)
                                     ((sentenceIdB, sentenceIdA), (minHashesB, minHashesA))
                                 }
 
@@ -321,8 +316,7 @@ object MinHash {
                         })
                         .groupByKey()
                         .map(tuple => {
-                            // Filters out duplicate sentenceId candidate pairs.
-                            logger.info("map() #1")       
+                            // Filters out duplicate sentenceId candidate pairs.      
 
                             // Since a groupByKey() was just done, all the pairs in the
                             // iterable should be the same, so simply take the first.
@@ -332,7 +326,6 @@ object MinHash {
                         
                         .filter(tuple => {
                             // Filters out false positives.
-                            logger.info("filter() #2")
 
                             val minHashesA: Array[Long] = tuple._2._1
                             val minHashesB: Array[Long] = tuple._2._2
@@ -350,7 +343,6 @@ object MinHash {
                         })
                         .map(tuple => {
                             // Drops the minHashes from the tuples.
-                            logger.info("map() #2")
 
                             tuple._1
 
