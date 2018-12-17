@@ -74,7 +74,7 @@ object InspectPairs {
 
                             val lineSplit: Array[String] = line.slice(1,line.length-1).split(',')
 
-                            val document: String = lineSplit(1)
+                            val document: String = if (lineSplit.length == 2) lineSplit(1) else ""
                             val documentId: String = lineSplit(0)
                             
                             val sentences: Array[String] = document.split('.')
