@@ -209,6 +209,8 @@ object MinHash {
         val nearDuplicatePairsOfSentences = (
             sparkContext.textFile(inputFilepath.toString())
                         .flatMap(line => {
+                            //
+                            logger.info("flatMap() #1")
 
                             val lineSplit: Array[String] = line.split(",")
 
@@ -279,6 +281,7 @@ object MinHash {
                         .groupByKey()
                         .filter(tuple => {
                             // Filters out signatures that belong to only one sentence.
+                            logger.info("filter() #1")
 
                             val iterable: Iterable[(String, Array[Long])] = tuple._2
 
@@ -286,11 +289,13 @@ object MinHash {
 
                         })
                         .flatMap(tuple => {
-
-                             // Finds all candidate pairs for the given signature.
+                            // Finds all candidate pairs for the given signature.
+                            logger.info("flatMap() #2")
 
                             val signature: String = tuple._1
                             val iterable: Iterable[(String, Array[Long])] = tuple._2
+
+                            logger.info((iterable.size * (iterable.size - 1))/2 + " pairs for signature " + signature)
 
                             (for {
                                 (sentenceIdA, minHashesA) <- iterable
@@ -316,7 +321,8 @@ object MinHash {
                         .groupByKey() 
                         .map(tuple => {
                             // Filters out duplicate sentenceId candidate pairs.
-                                    
+                            logger.info("map() #1")       
+
                             // Since a groupByKey() was just done, all the pairs in the
                             // iterable should be the same, so simply take the first.
                             (tuple._1, tuple._2.head) 
@@ -324,6 +330,7 @@ object MinHash {
                         })
                         .filter(tuple => {
                             // Filters out false positives.
+                            logger.info("filter() #2")
 
                             val minHashesA: Array[Long] = tuple._2._1
                             val minHashesB: Array[Long] = tuple._2._2
@@ -339,6 +346,7 @@ object MinHash {
                         })
                         .map(tuple => {
                             // Drops the minHashes from the tuples.
+                            logger.info("map() #2")
 
                             tuple._1
 
