@@ -2,10 +2,10 @@
  *
 */
 
-package cs.uwaterloo.cs651
+package ca.uwaterloo.cs651
 
 import org.apache.log4j.{Logger}
-import org.rogach.scallop._
+import org.rogach.scallop.{ScallopConf}
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -31,8 +31,8 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
     val defaultMaximumNumberOfShinglesToConsider: Int = 600
 
     mainOptions = Seq(
-        input_filepath,
-        output_filepath,
+        input_path,
+        output_path,
         target_jaccard_similarity_of_pairs,
         number_of_bits_in_hash_values,
         number_of_hash_functions,
@@ -45,8 +45,8 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
         maximum_number_of_shingles_to_consider
     )
 
-    val input_filepath = opt[String](descr="The path to the text file containing the input corpus.", required=true)
-    val output_filepath = opt[String](descr="The path to the directory under which the results will be written.", required=true) 
+    val input_path = opt[String](descr="The path to the text file containing the input corpus.", required=true)
+    val output_path = opt[String](descr="The path to the directory under which the results will be written.", required=true) 
     val target_jaccard_similarity_of_pairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshold for filtering out false positives. Must be between zero and one inclusive", default=Some(defaultTargetJaccardSimilarityOfPairs))
     val number_of_bits_in_hash_values = opt[Int](descr="", default=Some(defaultNumberOfBitsInHashValues))
     val number_of_hash_functions = opt[Int](descr="The number of hash functions to use.", default=Some(defaultNumberOfHashFunctions))
@@ -86,8 +86,8 @@ object MinHash {
 
         val conf = new MinHashConf(arguments)
 
-        logger.info("--input_filepath: " + conf.input_filepath())
-        logger.info("--output_filepath: " + conf.output_filepath())
+        logger.info("--input_path: " + conf.input_path())
+        logger.info("--output_path: " + conf.output_path())
         logger.info("--target_jaccard_similarity_of_pairs: " + conf.target_jaccard_similarity_of_pairs())
         logger.info("--number_of_bits_in_hash_values: " + conf.number_of_bits_in_hash_values())
         logger.info("--number_of_hash_functions: " + conf.number_of_hash_functions())
@@ -174,16 +174,16 @@ object MinHash {
         
         val fileSystem = FileSystem.get(sparkContext.hadoopConfiguration)
 
-        val inputFilepath: Path = new Path(conf.input_filepath())
+        val inputPath: Path = new Path(conf.input_path())
         
-        if (!fileSystem.exists(inputFilepath)) {
-            logger.error("The input file \"" + inputFilepath.toString() + "\" does not exist")
+        if (!fileSystem.exists(inputPath)) {
+            logger.error("The input file \"" + inputPath.toString() + "\" does not exist")
             System.exit(1)
         }
 
-        val outputFilepath: Path = new Path(conf.output_filepath())
+        val outputPath: Path = new Path(conf.output_path())
 
-        fileSystem.delete(outputFilepath, true) // If a file already exists under outputFilepath then delete it.
+        fileSystem.delete(outputPath, true) // If a file already exists under outputPath then delete it.
 
         val hashFunctions = new MultiplyShiftHash(
             numberOfBitsInHashValues,
@@ -207,12 +207,12 @@ object MinHash {
         val bandsBroadcast = sparkContext.broadcast(bands)
 
         val nearDuplicatePairsOfSentences = (
-            sparkContext.textFile(inputFilepath.toString())
+            sparkContext.textFile(inputPath.toString())
                         .flatMap(line => {
                             //
                             logger.info("flatMap() #1")
 
-                            val lineSplit: Array[String] = line.split(",")
+                            val lineSplit: Array[String] = line.slice(1,line.length-1).split(',')
 
                             val document: String = lineSplit(1)
                             val documentId: String = lineSplit(0)
@@ -358,7 +358,7 @@ object MinHash {
                         
         )
 
-        nearDuplicatePairsOfSentences.saveAsTextFile(outputFilepath.toString())
+        nearDuplicatePairsOfSentences.saveAsTextFile(outputPath.toString())
 
     }
 

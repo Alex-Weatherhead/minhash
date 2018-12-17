@@ -1,4 +1,4 @@
-package cs.uwaterloo.cs651
+package ca.uwaterloo.cs651
 
 import scala.math._
 
