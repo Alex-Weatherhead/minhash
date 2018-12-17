@@ -5,7 +5,7 @@
 package cs.uwaterloo.cs651
 
 import org.apache.log4j.{Logger}
-import org.rogach.scallop.{ScallopConf}
+import org.rogach.scallop._
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -13,23 +13,6 @@ import scala.util.Random
 
 class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
 
-    mainOptions = Seq(
-        inputFilepath,
-        outputFilepath,
-        numberOfReducers,
-        targetJaccardSimilarityOfPairs,
-        numberOfBitsInHashValues,
-        numberOfHashFunctions,
-        seedsForHashFunctions,
-        numberOfBands,
-        seedsForBands,
-        numberOfHashFunctionsPerBand,
-        numberOfCharactersPerShingle,
-        minimumNumberOfShinglesToConsider,
-        maximumNumberOfShinglesToConsider
-    )
-
-    val defaultNumberOfReducers: Int = 1
     val defaultTargetJaccardSimilarityOfPairs: Double = 0.9
     val defaultNumberOfBitsInHashValues: Int = 60
     val defaultNumberOfHashFunctions: Int = 20
@@ -47,21 +30,33 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
     val defaultMinimumNumberOfShinglesToConsider: Int = 75
     val defaultMaximumNumberOfShinglesToConsider: Int = 600
 
-    val inputFilepath = opt[String](descr="The path to the text file containing the input corpus.", required=true)
-    val outputFilepath = opt[String](descr="The path to the text file in which the results will be written.", required=true) 
+    mainOptions = Seq(
+        input_filepath,
+        output_filepath,
+        target_jaccard_similarity_of_pairs,
+        number_of_bits_in_hash_values,
+        number_of_hash_functions,
+        seeds_for_hash_functions,
+        number_of_bands,
+        seeds_for_bands,
+        number_of_hash_functions_per_band,
+        number_of_characters_per_shingle,
+        minimum_number_of_shingles_to_consider,
+        maximum_number_of_shingles_to_consider
+    )
 
-    val numberOfReducers = opt[Int](descr="The number of reducers for Spark to use.", default=Some(defaultNumberOfReducers))
-
-    val targetJaccardSimilarityOfPairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshold for filtering out false positives. Must be between zero and one inclusive", default=Some(defaultTargetJaccardSimilarityOfPairs))
-    val numberOfBitsInHashValues = opt[Int](descr="", default=Some(defaultNumberOfBitsInHashValues))
-    val numberOfHashFunctions = opt[Int](descr="The number of hash functions to use.", default=Some(defaultNumberOfHashFunctions))
-    val seedsForHashFunctions = opt[List[Long]](descr="The list of the random seeds to use when creating each hash function. Must have length equal to --numberOfHashFunctions.", default=Some(defaultSeedsForHashFunctions))
-    val numberOfBands = opt[Int](descr="The number of bands to use. Must be greater than or equal to one.", default=Some(defaultNumberOfBands))
-    val seedsForBands = opt[List[Long]](descr="A list of the random seeds to use to create each band. Must have length equal to --numberOfBands.", default=Some(defaultSeedsForBands))
-    val numberOfHashFunctionsPerBand = opt[Int](descr="The number of hash functions to use in each band. Must be greater than or equal to one.", default=Some(defaultNumberOfHashFunctionsPerBand))   
-    val numberOfCharactersPerShingle = opt[Int](descr="The number of characters per shingle. Must be greater than or equal to one.", default=Some(defaultNumberOfCharactersPerShingle)) 
-    val minimumNumberOfShinglesToConsider = opt[Int](descr="The minimum number of shingles to consider when processing a given sentence. Must be greater than or equal to zero.", default=Some(defaultMinimumNumberOfShinglesToConsider))
-    val maximumNumberOfShinglesToConsider = opt[Int](descr="The maximum number of shingles to consider when processing a given sentence. Must be greater than or equal to one.", default=Some(defaultMaximumNumberOfShinglesToConsider))
+    val input_filepath = opt[String](descr="The path to the text file containing the input corpus.", required=true)
+    val output_filepath = opt[String](descr="The path to the text file in which the results will be written.", required=true) 
+    val target_jaccard_similarity_of_pairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshold for filtering out false positives. Must be between zero and one inclusive", default=Some(defaultTargetJaccardSimilarityOfPairs))
+    val number_of_bits_in_hash_values = opt[Int](descr="", default=Some(defaultNumberOfBitsInHashValues))
+    val number_of_hash_functions = opt[Int](descr="The number of hash functions to use.", default=Some(defaultNumberOfHashFunctions))
+    val seeds_for_hash_functions = opt[List[Long]](descr="The list of the random seeds to use when creating each hash function. Must have length equal to --numberOfHashFunctions.", default=Some(defaultSeedsForHashFunctions))
+    val number_of_bands = opt[Int](descr="The number of bands to use. Must be greater than or equal to one.", default=Some(defaultNumberOfBands))
+    val seeds_for_bands = opt[List[Long]](descr="A list of the random seeds to use to create each band. Must have length equal to --numberOfBands.", default=Some(defaultSeedsForBands))
+    val number_of_hash_functions_per_band = opt[Int](descr="The number of hash functions to use in each band. Must be greater than or equal to one.", default=Some(defaultNumberOfHashFunctionsPerBand))   
+    val number_of_characters_per_shingle = opt[Int](descr="The number of characters per shingle. Must be greater than or equal to one.", default=Some(defaultNumberOfCharactersPerShingle)) 
+    val minimum_number_of_shingles_to_consider = opt[Int](descr="The minimum number of shingles to consider when processing a given sentence. Must be greater than or equal to zero.", default=Some(defaultMinimumNumberOfShinglesToConsider))
+    val maximum_number_of_shingles_to_consider = opt[Int](descr="The maximum number of shingles to consider when processing a given sentence. Must be greater than or equal to one.", default=Some(defaultMaximumNumberOfShinglesToConsider))
 
     verify()
 
@@ -87,40 +82,40 @@ object MinHash {
 
     }
 
-    def main (arguments: Array[String]) {
+    def main (arguments: Array[String]) {        
 
         val conf = new MinHashConf(arguments)
 
-        logger.info("inputFilepath: " + conf.inputFilepath())
-        logger.info("outputFilepath: " + conf.outputFilepath())
-        logger.info("--targetJaccardSimilarityOfPairs: " + conf.targetJaccardSimilarityOfPairs())
-        logger.info("--numberOfReducers: " + conf.numberOfReducers())
-        logger.info("--numberOfBitsInHashValues: " + conf.numberOfBitsInHashValues())
-        logger.info("--numberOfHashFunctions: " + conf.numberOfHashFunctions())
-        logger.info("--seedsForHashFunctions: " + conf.seedsForHashFunctions())
-        logger.info("--numberOfBands: " + conf.numberOfBands())
-        logger.info("--seedsForBands: " + conf.seedsForBands())
-        logger.info("--numberOfHashFunctionsPerBand: " + conf.numberOfHashFunctionsPerBand())
-        logger.info("--numberOfCharactersPerShingle: " + conf.numberOfCharactersPerShingle())
-        logger.info("--minimumNumberOfShinglesToConsider: " + conf.minimumNumberOfShinglesToConsider())
-        logger.info("--maximumNumberOfShinglesToConsider: " + conf.maximumNumberOfShinglesToConsider())
+        logger.info("--input_filepath: " + conf.input_filepath())
+        logger.info("--output_filepath: " + conf.output_filepath())
+        logger.info("--target_jaccard_similarity_of_pairs: " + conf.target_jaccard_similarity_of_pairs())
+        logger.info("--number_of_reducers: " + conf.number_of_reducers())
+        logger.info("--number_of_bits_in_hash_values: " + conf.number_of_bits_in_hash_values())
+        logger.info("--number_of_hash_functions: " + conf.number_of_hash_functions())
+        logger.info("--seeds_for_hash_functions: " + conf.seeds_for_hash_functions())
+        logger.info("--number_of_bands: " + conf.number_of_bands())
+        logger.info("--seeds_for_bands: " + conf.seeds_for_bands())
+        logger.info("--number_of_hash_functions_per_band: " + conf.number_of_hash_functions_per_band())
+        logger.info("--number_of_characters_per_shingle: " + conf.number_of_characters_per_shingle())
+        logger.info("--minimum_number_of_shingles_to_consider: " + conf.minimum_number_of_shingles_to_consider())
+        logger.info("--maximum_number_of_shingles_to_consider: " + conf.maximum_number_of_shingles_to_consider())
 
-        val targetJaccardSimilarityOfPairs: Double = conf.targetJaccardSimilarityOfPairs()
+        val targetJaccardSimilarityOfPairs: Double = conf.target_jaccard_similarity_of_pairs()
 
         if (targetJaccardSimilarityOfPairs < 0 || targetJaccardSimilarityOfPairs > 1) {
             logger.error("The target Jaccard Similarity of pairs must be between zero and one inclusive, but " + targetJaccardSimilarityOfPairs + " was given.")
             System.exit(1)
         }
 
-        val numberOfBitsInHashValues: Int = conf.numberOfBitsInHashValues()
+        val numberOfBitsInHashValues: Int = conf.number_of_bits_in_hash_values()
 
         if (numberOfBitsInHashValues < 1) {
             logger.error("The number of bits in the hash values must be greater than or equal to one, but " + numberOfBitsInHashValues + " was given.")
             System.exit(1)
         }
 
-        val numberOfHashFunctions: Int = conf.numberOfHashFunctions()
-        val seedsForHashFunctions: List[Long] = conf.seedsForHashFunctions()
+        val numberOfHashFunctions: Int = conf.number_of_hash_functions()
+        val seedsForHashFunctions: List[Long] = conf.seeds_for_hash_functions()
 
         if (numberOfHashFunctions < 1) {
             logger.error("The number of hash functions must be greater than or equal to one, but " + numberOfHashFunctions + " was given.")
@@ -131,8 +126,8 @@ object MinHash {
             System.exit(1)
         }
 
-        val numberOfBands: Int = conf.numberOfBands()
-        val seedsForBands: List[Long] = conf.seedsForBands()
+        val numberOfBands: Int = conf.number_of_bands()
+        val seedsForBands: List[Long] = conf.seeds_for_bands()
 
         if (numberOfBands < 1) {
             logger.error("The number of bands must be greater than or equal to one, but " + numberOfBands + " was given.")
@@ -143,7 +138,7 @@ object MinHash {
             System.exit(1)
         }
 
-        val numberOfHashFunctionsPerBand: Int = conf.numberOfHashFunctionsPerBand()
+        val numberOfHashFunctionsPerBand: Int = conf.number_of_hash_functions_per_band()
 
         if (numberOfHashFunctionsPerBand < 1) {
             logger.error("The number of hash functions per band must be greater than or equal to one, but " + numberOfHashFunctionsPerBand + " was given.")
@@ -154,21 +149,21 @@ object MinHash {
             System.exit(1)
         }
 
-        val numberOfCharactersPerShingle: Int = conf.numberOfCharactersPerShingle()
+        val numberOfCharactersPerShingle: Int = conf.number_of_characters_per_shingle()
 
         if (numberOfCharactersPerShingle < 1) {
             logger.error("The number of characters per shingle must be greater than or equal to one, but " + numberOfCharactersPerShingle + " was given.")
             System.exit(1)
         }
 
-        val minimumNumberOfShinglesToConsider: Int = conf.minimumNumberOfShinglesToConsider()
+        val minimumNumberOfShinglesToConsider: Int = conf.minimum_number_of_shingles_to_consider()
 
         if (minimumNumberOfShinglesToConsider < 0) {
             logger.error("The minimum number of shingles to consider must be greater than or equal to zero, but " + minimumNumberOfShinglesToConsider + " was given.")
             System.exit(1)
         }
 
-        val maximumNumberOfShinglesToConsider: Int = conf.maximumNumberOfShinglesToConsider()
+        val maximumNumberOfShinglesToConsider: Int = conf.maximum_number_of_shingles_to_consider()
 
         if (maximumNumberOfShinglesToConsider < 1) {
             logger.error("The maximum number of shingles to consider must be greater than or equal to one, but " + maximumNumberOfShinglesToConsider + " was given.")
@@ -180,14 +175,14 @@ object MinHash {
         
         val fileSystem = FileSystem.get(sparkContext.hadoopConfiguration)
 
-        val inputFilepath: Path = new Path(conf.inputFilepath())
+        val inputFilepath: Path = new Path(conf.input_filepath())
         
         if (!fileSystem.exists(inputFilepath)) {
             logger.error("The input file \"" + inputFilepath.toString() + "\" does not exist")
             System.exit(1)
         }
 
-        val outputFilepath: Path = new Path(conf.outputFilepath())
+        val outputFilepath: Path = new Path(conf.output_filepath())
 
         fileSystem.delete(outputFilepath, true) // If a file already exists under outputFilepath then delete it.
 
@@ -220,14 +215,17 @@ object MinHash {
 
                             val document: String = lineSplit(1)
                             val documentId: String = lineSplit(0)
-                                    
-                            val sentences: Array[String] = document.split(".")
+                            
+                            val sentences: Array[String] = document.split('.')
+
+                            logger.info("Number of sentences: " + sentences.length)
+
                             sentences.zipWithIndex.flatMap(tuple => {
 
                                 val sentence = tuple._1
                                 val sentenceNumber = tuple._2
                                 val sentenceId: String = documentId + "::" + sentenceNumber 
-
+                    
                                 val shingles: Iterator[String] = (
                                     for {
                                         shingle <- sentence.sliding(numberOfCharactersPerShingle, 1)
@@ -289,6 +287,7 @@ object MinHash {
 
                         })
                         .flatMap(tuple => {
+
                              // Finds all candidate pairs for the given signature.
 
                             val signature: String = tuple._1
