@@ -270,7 +270,8 @@ object MinHash {
                                         minHashesForBand <- minHashesForBands
                                     }
                                     yield {
-                                        (minHashesForBand.toString, (sentenceId, minHashes))
+                                        //(minHashesForBand.toString, (sentenceId, minHashes))
+                                        (minHashesForBand.toString, sentenceId)
                                     }
 
                                 }
@@ -283,7 +284,8 @@ object MinHash {
                             // Filters out signatures that belong to only one sentence.
                             logger.info("filter() #1")
 
-                            val iterable: Iterable[(String, Array[Long])] = tuple._2
+                            //val iterable: Iterable[(String, Array[Long])] = tuple._2
+                            val iterable: Iterable[String] = tuple._2
 
                             iterable.size > 1 
 
@@ -293,26 +295,31 @@ object MinHash {
                             logger.info("flatMap() #2")
 
                             val signature: String = tuple._1
-                            val iterable: Iterable[(String, Array[Long])] = tuple._2
-
+                            //val iterable: Iterable[(String, Array[Long])] = tuple._2
+                            val iterable: Iterable[String] = tuple._2
+                            
                             logger.info((iterable.size * (iterable.size - 1))/2 + " pairs for signature " + signature)
 
                             (for {
-                                (sentenceIdA, minHashesA) <- iterable
+                                //(sentenceIdA, minHashesA) <- iterable
+                                sentenceIdA <- iterable
                             }
                             yield {
                                 for {
-                                    (sentenceIdB, minHashesB) <- iterable
+                                    //(sentenceIdB, minHashesB) <- iterable
+                                    sentenceIdB <- iterable
                                     if (sentenceIdB != sentenceIdB)
                                 }
                                 yield {
                                     // It is important to maintain some sort of consistent ordering
                                     // so that duplicates candidate pairs can be easily filtered out.
                                     if (sentenceIdA <= sentenceIdB) {
-                                        ((sentenceIdA, sentenceIdB), (minHashesA, minHashesB))
+                                        //((sentenceIdA, sentenceIdB), (minHashesA, minHashesB))
+                                        (sentenceIdA, sentenceIdB)
                                     }
                                     else{
-                                        ((sentenceIdB, sentenceIdA), (minHashesB, minHashesA))
+                                        //((sentenceIdB, sentenceIdA), (minHashesB, minHashesA))
+                                        (sentenceIdB, sentenceIdA)
                                     }
                                 }
                             }).flatten
@@ -328,6 +335,7 @@ object MinHash {
                             (tuple._1, tuple._2.head) 
 
                         })
+                        /**
                         .filter(tuple => {
                             // Filters out false positives.
                             logger.info("filter() #2")
@@ -344,6 +352,7 @@ object MinHash {
                             estimatedJaccardSimilarityOfPair >= targetJaccardSimilarityOfPairsBroadcast.value
 
                         })
+                        */
                         .map(tuple => {
                             // Drops the minHashes from the tuples.
                             logger.info("map() #2")
