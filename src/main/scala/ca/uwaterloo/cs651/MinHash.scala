@@ -227,14 +227,10 @@ object MinHash {
                                 val sentenceNumber = tuple._2
                                 val sentenceId: String = documentId + "::" + sentenceNumber 
                     
-                                val shingles: Iterator[String] = (
-                                    for {
-                                        shingle <- sentence.sliding(numberOfCharactersPerShingle, 1)
-                                    } yield shingle
-                                )
-                                                 
-                                if (shingles.length < minimumNumberOfShinglesToConsiderBroadcast.value ||
-                                    shingles.length > maximumNumberOfShinglesToConsiderBroadcast.value) {
+                                val numberOfShingles: Int = sentence.length - (numberOfCharactersPerShingle - 1)
+
+                                if (numberOfShingles < minimumNumberOfShinglesToConsiderBroadcast.value ||
+                                    numberOfShingles > maximumNumberOfShinglesToConsiderBroadcast.value) {
 
                                     List() // We ignore this sentence, as it either subceeds or exceeds the permissable number of shingles. 
 
@@ -243,9 +239,12 @@ object MinHash {
 
                                     val minHashes = Array.fill[Long](numberOfHashFunctionsBroadcast.value)(Long.MaxValue)
 
+                                    val shingles: Iterator[String] = sentence.sliding(numberOfCharactersPerShingle, 1)
+
                                     for (shingle <- shingles) {
+                                        logger.info(shingle)
                                         val hashValuesOfShingle: Array[Long] = hashFunctionsBroadcast.value.hashStr(shingle)
-                                        for (hf <- 0 to numberOfHashFunctionsBroadcast.value) {
+                                        for (hf <- 0 to numberOfHashFunctionsBroadcast.value - 1) {
                                             if (hashValuesOfShingle(hf) < minHashes(hf)) {
                                                 minHashes(hf) = hashValuesOfShingle(hf)
                                             }
@@ -261,7 +260,9 @@ object MinHash {
                                                 hf <- List.range(0, numberOfHashFunctionsBroadcast.value)
                                                 if (bandsBroadcast.value(b).contains(hf))
                                             }
-                                            yield minHashes(hf)      
+                                            yield {
+                                                minHashes(hf) 
+                                            }     
                                         }
                                     )
 
@@ -270,8 +271,8 @@ object MinHash {
                                         minHashesForBand <- minHashesForBands
                                     }
                                     yield {
-                                        //(minHashesForBand.toString, (sentenceId, minHashes))
-                                        (minHashesForBand.toString, sentenceId)
+                                        logger.info(minHashesForBand.toString)
+                                        (minHashesForBand.toString, (sentenceId, minHashes))
                                     }
 
                                 }
@@ -284,8 +285,7 @@ object MinHash {
                             // Filters out signatures that belong to only one sentence.
                             logger.info("filter() #1")
 
-                            //val iterable: Iterable[(String, Array[Long])] = tuple._2
-                            val iterable: Iterable[String] = tuple._2
+                            val iterable: Iterable[(String, Array[Long])] = tuple._2 
 
                             iterable.size > 1 
 
@@ -295,37 +295,29 @@ object MinHash {
                             logger.info("flatMap() #2")
 
                             val signature: String = tuple._1
-                            //val iterable: Iterable[(String, Array[Long])] = tuple._2
-                            val iterable: Iterable[String] = tuple._2
-                            
+                            val iterable: Iterable[(String, Array[Long])] = tuple._2
+
                             logger.info((iterable.size * (iterable.size - 1))/2 + " pairs for signature " + signature)
 
-                            (for {
-                                //(sentenceIdA, minHashesA) <- iterable
-                                sentenceIdA <- iterable
+                            for {
+                                (sentenceIdA, minHashesA) <- iterable
+                                (sentenceIdB, minHashesB) <- iterable
                             }
                             yield {
-                                for {
-                                    //(sentenceIdB, minHashesB) <- iterable
-                                    sentenceIdB <- iterable
-                                    if (sentenceIdB != sentenceIdB)
+
+                                // It is important to maintain some sort of consistent ordering
+                                // so that duplicates candidate pairs can be easily filtered out.
+                                if (sentenceIdA <= sentenceIdB) {
+                                    ((sentenceIdA, sentenceIdB), (minHashesA, minHashesB))
                                 }
-                                yield {
-                                    // It is important to maintain some sort of consistent ordering
-                                    // so that duplicates candidate pairs can be easily filtered out.
-                                    if (sentenceIdA <= sentenceIdB) {
-                                        //((sentenceIdA, sentenceIdB), (minHashesA, minHashesB))
-                                        (sentenceIdA, sentenceIdB)
-                                    }
-                                    else{
-                                        //((sentenceIdB, sentenceIdA), (minHashesB, minHashesA))
-                                        (sentenceIdB, sentenceIdA)
-                                    }
+                                else{
+                                    ((sentenceIdB, sentenceIdA), (minHashesB, minHashesA))
                                 }
-                            }).flatten
+
+                            }
 
                         })
-                        .groupByKey() 
+                        .groupByKey()
                         .map(tuple => {
                             // Filters out duplicate sentenceId candidate pairs.
                             logger.info("map() #1")       
@@ -335,7 +327,7 @@ object MinHash {
                             (tuple._1, tuple._2.head) 
 
                         })
-                        /**
+                        
                         .filter(tuple => {
                             // Filters out false positives.
                             logger.info("filter() #2")
@@ -345,14 +337,13 @@ object MinHash {
 
                             var estimatedJaccardSimilarityOfPair = 0
                                     
-                            for (hfpb <- 0 to numberOfHashFunctionsPerBandBroadcast.value) {
+                            for (hfpb <- 0 to numberOfHashFunctionsPerBandBroadcast.value - 1) {
                                 estimatedJaccardSimilarityOfPair += hfpb / numberOfHashFunctionsPerBandBroadcast.value
                             }
 
                             estimatedJaccardSimilarityOfPair >= targetJaccardSimilarityOfPairsBroadcast.value
 
                         })
-                        */
                         .map(tuple => {
                             // Drops the minHashes from the tuples.
                             logger.info("map() #2")
@@ -360,6 +351,7 @@ object MinHash {
                             tuple._1
 
                         })  
+                        
         )
 
         nearDuplicatePairsOfSentences.saveAsTextFile(outputFilepath.toString())
