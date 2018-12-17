@@ -89,7 +89,6 @@ object MinHash {
         logger.info("--input_filepath: " + conf.input_filepath())
         logger.info("--output_filepath: " + conf.output_filepath())
         logger.info("--target_jaccard_similarity_of_pairs: " + conf.target_jaccard_similarity_of_pairs())
-        logger.info("--number_of_reducers: " + conf.number_of_reducers())
         logger.info("--number_of_bits_in_hash_values: " + conf.number_of_bits_in_hash_values())
         logger.info("--number_of_hash_functions: " + conf.number_of_hash_functions())
         logger.info("--seeds_for_hash_functions: " + conf.seeds_for_hash_functions())
