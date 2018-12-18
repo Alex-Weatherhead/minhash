@@ -50,7 +50,7 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
     val input_path = opt[String](descr="The path to the text file containing the input corpus.", required=true)
     val output_path = opt[String](descr="The path to the directory under which the results will be written.", required=true) 
     val target_jaccard_similarity_of_pairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshold for filtering out false positives. Must be between zero and one inclusive", default=Some(defaultTargetJaccardSimilarityOfPairs))
-    val maximum_jaccard_similarity_of_pairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshld for filtering out the pair. Must be between zero and one inclusive.", default=Some(defaultMaximumJaccardSimilarityOfPairs)
+    val maximum_jaccard_similarity_of_pairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshld for filtering out the pair. Must be between zero and one inclusive.", default=Some(defaultMaximumJaccardSimilarityOfPairs))
     val number_of_bits_in_hash_values = opt[Int](descr="", default=Some(defaultNumberOfBitsInHashValues))
     val number_of_hash_functions = opt[Int](descr="The number of hash functions to use.", default=Some(defaultNumberOfHashFunctions))
     val seeds_for_hash_functions = opt[List[Long]](descr="The list of the random seeds to use when creating each hash function. Must have length equal to --numberOfHashFunctions.", default=Some(defaultSeedsForHashFunctions))
