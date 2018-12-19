@@ -14,7 +14,6 @@ import scala.util.Random
 class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
 
     val defaultTargetJaccardSimilarityOfPairs: Double = 0.9
-    val defaultMaximumJaccardSimilarityOfPairs: Double = 1.0
     val defaultNumberOfBitsInHashValues: Int = 60
     val defaultNumberOfHashFunctions: Int = 20
     val defaultSeedsForHashFunctions: List[Long] = {
@@ -35,7 +34,6 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
         input_path,
         output_path,
         target_jaccard_similarity_of_pairs,
-        maximum_jaccard_similarity_of_pairs,
         number_of_bits_in_hash_values,
         number_of_hash_functions,
         seeds_for_hash_functions,
@@ -50,7 +48,6 @@ class MinHashConf (arguments: Seq[String]) extends ScallopConf(arguments) {
     val input_path = opt[String](descr="The path to the text file containing the input corpus.", required=true)
     val output_path = opt[String](descr="The path to the directory under which the results will be written.", required=true) 
     val target_jaccard_similarity_of_pairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshold for filtering out false positives. Must be between zero and one inclusive", default=Some(defaultTargetJaccardSimilarityOfPairs))
-    val maximum_jaccard_similarity_of_pairs = opt[Double](descr="The jaccard similarity of pairs that will be used as a threshld for filtering out the pair. Must be between zero and one inclusive.", default=Some(defaultMaximumJaccardSimilarityOfPairs))
     val number_of_bits_in_hash_values = opt[Int](descr="", default=Some(defaultNumberOfBitsInHashValues))
     val number_of_hash_functions = opt[Int](descr="The number of hash functions to use.", default=Some(defaultNumberOfHashFunctions))
     val seeds_for_hash_functions = opt[List[Long]](descr="The list of the random seeds to use when creating each hash function. Must have length equal to --numberOfHashFunctions.", default=Some(defaultSeedsForHashFunctions))
@@ -92,7 +89,6 @@ object MinHash {
         logger.info("--input_path: " + conf.input_path())
         logger.info("--output_path: " + conf.output_path())
         logger.info("--target_jaccard_similarity_of_pairs: " + conf.target_jaccard_similarity_of_pairs())
-        logger.info("--maximum_jaccard_similarity_of_pairs: " + conf.maximum_jaccard_similarity_of_pairs())
         logger.info("--number_of_bits_in_hash_values: " + conf.number_of_bits_in_hash_values())
         logger.info("--number_of_hash_functions: " + conf.number_of_hash_functions())
         logger.info("--seeds_for_hash_functions: " + conf.seeds_for_hash_functions())
@@ -107,13 +103,6 @@ object MinHash {
 
         if (targetJaccardSimilarityOfPairs < 0 || targetJaccardSimilarityOfPairs > 1) {
             logger.error("The target Jaccard Similarity of pairs must be between zero and one inclusive, but " + targetJaccardSimilarityOfPairs + " was given.")
-            System.exit(1)
-        }
-
-        val maximumJaccardSimilarityOfPairs: Double = conf.maximum_jaccard_similarity_of_pairs()
-
-        if (maximumJaccardSimilarityOfPairs < 0 || maximumJaccardSimilarityOfPairs > 1) {
-            logger.error("The maximum Jaccard Similarity of pairs must be between zero and one inclusive, but " + maximumJaccardSimilarityOfPairs + " was given.")
             System.exit(1)
         }
 
@@ -209,7 +198,6 @@ object MinHash {
         )
 
         val targetJaccardSimilarityOfPairsBroadcast = sparkContext.broadcast(targetJaccardSimilarityOfPairs)
-        val maximumJaccardSimilarityOfPairsBroadcast = sparkContext.broadcast(maximumJaccardSimilarityOfPairs)
         val numberOfBandsBroadcast = sparkContext.broadcast(numberOfBands)
         val numberOfHashFunctionsBroadcast = sparkContext.broadcast(numberOfHashFunctions)
         val numberOfHashFunctionsPerBandBroadcast = sparkContext.broadcast(numberOfHashFunctions)
@@ -351,8 +339,8 @@ object MinHash {
                             }
 
                             logger.info("Estimated vs target: " + estimatedJaccardSimilarityOfPair + ", " + targetJaccardSimilarityOfPairsBroadcast.value)
-                            
-                            estimatedJaccardSimilarityOfPair >= targetJaccardSimilarityOfPairsBroadcast.value && estimatedJaccardSimilarityOfPair <= maximumJaccardSimilarityOfPairsBroadcast.value
+
+                            estimatedJaccardSimilarityOfPair >= targetJaccardSimilarityOfPairsBroadcast.value
 
                         })
                         .map(tuple => {
