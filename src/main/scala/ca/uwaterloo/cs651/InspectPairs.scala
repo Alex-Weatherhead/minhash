@@ -113,6 +113,15 @@ object InspectPairs {
                             ((sentenceIdA, sentenceIdB), (sentenceA, sentenceB))
 
                         })
+                        .filter(tuple => {
+
+                            val sentenceA: String = tuple._2._1
+                            val sentenceB: String = tuple._2._2
+
+                            sentenceA != sentenceB
+
+                        })
+
         )
 
         sentenceIdPairsWithSentences.saveAsTextFile(sentenceIdAndSentencePairsOutputPath.toString())
